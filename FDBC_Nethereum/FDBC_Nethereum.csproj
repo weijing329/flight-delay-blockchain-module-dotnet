@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp1.1</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FDBC_Shared\FDBC_Shared.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="SmartContracts\" />
+  </ItemGroup>
+
+</Project>
