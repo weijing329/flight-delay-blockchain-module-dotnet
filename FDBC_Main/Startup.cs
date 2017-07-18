@@ -59,7 +59,7 @@ namespace FDBC_Main
 
       app.UseMvc();
 
-      Web3Helper.GetDefaultAccountBalance();
+      Web3Helper.GetValue();
     }
   }
 }

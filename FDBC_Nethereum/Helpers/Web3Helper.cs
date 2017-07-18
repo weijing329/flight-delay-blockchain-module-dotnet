@@ -7,6 +7,7 @@ using Nethereum.Web3;
 using Nethereum.Hex.HexTypes;
 using Nethereum.RPC.Eth.DTOs;
 using Nethereum.ABI.FunctionEncoding.Attributes;
+using Nethereum.Contracts;
 using System.Threading;
 
 namespace FDBC_Nethereum.Helpers
@@ -15,7 +16,7 @@ namespace FDBC_Nethereum.Helpers
   {
     public static Web3 GetWeb3()
     {
-      return new Web3(url: "http://172.20.10.2:28545");
+      return new Web3(url: "http://192.168.43.243:28545");
     }
 
     public static async Task<BigInteger> GetDefaultAccountBalance()
@@ -58,50 +59,89 @@ namespace FDBC_Nethereum.Helpers
       //
       //}
 
+      try
+      {
+        var sender_address = "0x64e18aa010ca6ce31b771742538d580e3f1cfb4c";
+        var password = "dev_password";
+
+        var abi = @"[{""constant"":true,""inputs"":[],""name"":""storedData"",""outputs"":[{""name"":"""",""type"":""uint256""}],""payable"":false,""type"":""function""},{""constant"":false,""inputs"":[{""name"":""x"",""type"":""uint256""}],""name"":""set"",""outputs"":[],""payable"":false,""type"":""function""},{""constant"":true,""inputs"":[],""name"":""get"",""outputs"":[{""name"":""retVal"",""type"":""uint256""}],""payable"":false,""type"":""function""},{""inputs"":[{""name"":""initialValue"",""type"":""uint256""}],""payable"":false,""type"":""constructor""}]";
+        var byteCode = "";
+
+        var web3 = GetWeb3();
+
+
+        // Test
+        //This can look at a local store for account addresses
+        var accounts = await web3.Eth.Accounts.SendRequestAsync();
+
+        var hex_account_blance = await web3.Eth.GetBalance.SendRequestAsync(accounts[0]);
+
+        ////====================================
+        //// deploy contract
+
+        // unlock for 120 secs
+        //var unlockResult = await web3.Personal.UnlockAccount.SendRequestAsync(senderAddress, password, new HexBigInteger(120));
+        //Assert.True(unlockResult);
+
+        //var transactionHash = await web3.Eth.DeployContract.SendRequestAsync(abi, byteCode, senderAddress, new HexBigInteger(900000), multiplier);
+        //var receipt = await GetTransactionReceiptAsync(web3, transactionHash);
+
+        ////====================================
+        // transaction call 
+
+        //var contractAddress = receipt.ContractAddress;
+        string contract_address = "0xf06f32b69284961c66d9461d3f426e13e92c3b10";
+
+        Contract contract = web3.Eth.GetContract(abi, contract_address.Substring(2));
+
+        Function set_function = contract.GetFunction("set");
+
+        Function get_function = contract.GetFunction("get");
+
+        var result = await get_function.CallAsync<int>();
+
+        var transaction_hash = await get_function.SendTransactionAsync(sender_address);
+
+        var receipt = await GetTransactionReceiptAsync(web3, transaction_hash);
+
+        transaction_hash = await set_function.SendTransactionAsync(sender_address, 100);
+
+        receipt = await GetTransactionReceiptAsync(web3, transaction_hash);
+
+        transaction_hash = await get_function.SendTransactionAsync(sender_address);
+
+        receipt = await GetTransactionReceiptAsync(web3, transaction_hash);
+
+        //====================================
+        // event
+
+        //var multiplyEvent = contract.GetEvent("Multiplied");
+
+        //var filterAll = await multiplyEvent.CreateFilterAsync();
+
+        //var filter7 = await multiplyEvent.CreateFilterAsync(7);
+
+        //var filterSender = await multiplyEvent.CreateFilterAsync(null, senderAddress);
+
+      }
+      catch (Exception ex)
+      {
+
+        throw;
+      }
+    }
+
+    public async Task SetStatus()
+    {
       var senderAddress = "0x64e18aa010ca6ce31b771742538d580e3f1cfb4c";
       var password = "dev_password";
 
       var abi = @"";
       var byteCode = "";
 
-      var multiplier = 7;
-
       var web3 = GetWeb3();
 
-      //====================================
-      // deploy contract
 
-      // unlock for 120 secs
-      var unlockResult = await web3.Personal.UnlockAccount.SendRequestAsync(senderAddress, password, new HexBigInteger(120));
-      //Assert.True(unlockResult);
-
-      var transactionHash = await web3.Eth.DeployContract.SendRequestAsync(abi, byteCode, senderAddress, new HexBigInteger(900000), multiplier);
-      var receipt = await GetTransactionReceiptAsync(web3, transactionHash);
-
-      //====================================
-      // transaction call 
-
-      var contractAddress = receipt.ContractAddress;
-
-      var contract = web3.Eth.GetContract(abi, contractAddress);
-
-      var multiplyFunction = contract.GetFunction("multiply");
-
-      transactionHash = await multiplyFunction.SendTransactionAsync(senderAddress, 7);
-      transactionHash = await multiplyFunction.SendTransactionAsync(senderAddress, 8);
-
-      receipt = await GetTransactionReceiptAsync(web3, transactionHash);
-
-      //====================================
-      // event
-
-      //var multiplyEvent = contract.GetEvent("Multiplied");
-
-      //var filterAll = await multiplyEvent.CreateFilterAsync();
-
-      //var filter7 = await multiplyEvent.CreateFilterAsync(7);
-
-      //var filterSender = await multiplyEvent.CreateFilterAsync(null, senderAddress);
     }
 
     public async Task ShouldBeAbleCallAndReadEventLogs()
