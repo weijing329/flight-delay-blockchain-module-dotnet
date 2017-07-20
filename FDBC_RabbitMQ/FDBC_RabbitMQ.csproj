@@ -5,6 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\FDBC_Nethereum\FDBC_Nethereum.csproj" />
     <ProjectReference Include="..\FDBC_Shared\FDBC_Shared.csproj" />
   </ItemGroup>
 

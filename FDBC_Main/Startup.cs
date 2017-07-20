@@ -13,6 +13,7 @@ using Microsoft.Extensions.Logging;
 using FDBC_RabbitMQ.MqServices;
 using FDBC_Shared.Configuration;
 using FDBC_RabbitMQ.Config;
+using FDBC_Nethereum.Services;
 
 using FDBC_Nethereum.Helpers;
 
@@ -33,6 +34,8 @@ namespace FDBC_Main
 
     public IConfigurationRoot Configuration { get; }
 
+    public IWeb3GethService Web3GethService { get; set; }
+
     // This method gets called by the runtime. Use this method to add services to the container.
     public void ConfigureServices(IServiceCollection services)
     {
@@ -43,9 +46,12 @@ namespace FDBC_Main
       // add the configuration object
       services.AddSingleton<IConfiguration>(Configuration);
 
+      Web3GethService = new Web3GethService(Configuration);
+      services.AddSingleton<IWeb3GethService>(Web3GethService);
+
       //services.AddRawRabbit();
       //services.AddSingleton(new RawRabbitService(Configuration));
-      //services.AddSingleton(new EasyNetQService(Configuration));
+      services.AddSingleton(new EasyNetQService(Configuration, Web3GethService));
 
       // Add framework services.
       services.AddMvc();
@@ -59,7 +65,7 @@ namespace FDBC_Main
 
       app.UseMvc();
 
-      Web3Helper.GetValue();
+      //Web3Helper.GetValue();
     }
   }
 }

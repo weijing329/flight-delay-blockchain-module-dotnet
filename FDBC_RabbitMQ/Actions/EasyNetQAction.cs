@@ -11,7 +11,16 @@ namespace FDBC_RabbitMQ.Actions
   {
     public static async Task OnReceiving_I2B_Request(I2B_Request request)
     {
-      dynamic obj = JsonConvert.DeserializeObject(request.task.payload);
+      try
+      {
+        dynamic obj = JsonConvert.DeserializeObject(request.task.payload);
+      }
+      catch (Exception ex)
+      {
+
+        throw ex;
+      }
+      
     }
   }
 }

@@ -7,6 +7,13 @@ namespace FDBC_Shared.DTO
 {
   public class B2I_Request
   {
-    public string text { get; set; }
+    public string task_uuid { get; set; }
+    public B2I_Request_Task task { get; set; }
+  }
+
+  public class B2I_Request_Task
+  {
+    public string name { get; set; }
+    public string payload { get; set; }
   }
 }
