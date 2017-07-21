@@ -1,19 +1,17 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
-VisualStudioVersion = 15.0.26430.13
+VisualStudioVersion = 15.0.26430.16
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FDBC_Main", "FDBC_Main\FDBC_Main.csproj", "{20D382A4-C4CB-4C06-AAA7-14B0F1379DE1}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FDBC_Main", "FDBC_Main\FDBC_Main.csproj", "{20D382A4-C4CB-4C06-AAA7-14B0F1379DE1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FDBC_Nethereum", "FDBC_Nethereum\FDBC_Nethereum.csproj", "{9A92A92E-A6FE-4BDA-8681-757D9974B25E}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FDBC_Nethereum", "FDBC_Nethereum\FDBC_Nethereum.csproj", "{9A92A92E-A6FE-4BDA-8681-757D9974B25E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FDBC_Shared", "FDBC_Shared\FDBC_Shared.csproj", "{C78F9FBC-A422-42E2-8403-F6F983B679D1}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FDBC_Shared", "FDBC_Shared\FDBC_Shared.csproj", "{C78F9FBC-A422-42E2-8403-F6F983B679D1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FDBC_Hangfire", "FDBC_Hangfire\FDBC_Hangfire.csproj", "{031CD201-5610-4E8E-80D6-2E05D683E1A8}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FDBC_Hangfire", "FDBC_Hangfire\FDBC_Hangfire.csproj", "{031CD201-5610-4E8E-80D6-2E05D683E1A8}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FDBC_RabbitMQ", "FDBC_RabbitMQ\FDBC_RabbitMQ.csproj", "{E1490F61-642E-4AB2-83D7-4D6C402CA108}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FDBC_Bridge", "FDBC_Bridge\FDBC_Bridge.csproj", "{80497445-EBE3-4F8C-BF3B-397E19A91BEF}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FDBC_RabbitMQ", "FDBC_RabbitMQ\FDBC_RabbitMQ.csproj", "{E1490F61-642E-4AB2-83D7-4D6C402CA108}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -41,10 +39,6 @@ Global
 		{E1490F61-642E-4AB2-83D7-4D6C402CA108}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E1490F61-642E-4AB2-83D7-4D6C402CA108}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E1490F61-642E-4AB2-83D7-4D6C402CA108}.Release|Any CPU.Build.0 = Release|Any CPU
-		{80497445-EBE3-4F8C-BF3B-397E19A91BEF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{80497445-EBE3-4F8C-BF3B-397E19A91BEF}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{80497445-EBE3-4F8C-BF3B-397E19A91BEF}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{80497445-EBE3-4F8C-BF3B-397E19A91BEF}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

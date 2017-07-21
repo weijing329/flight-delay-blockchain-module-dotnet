@@ -31,6 +31,7 @@ namespace FDBC_Nethereum.Services
     private readonly Web3Geth _web3geth;
 
     private readonly Flight _flight;
+    private readonly Policy _policy;
 
     private readonly TestingContract _testing_contract;
 
@@ -54,11 +55,14 @@ namespace FDBC_Nethereum.Services
       _web3geth = new Web3Geth(new ManagedAccount(sender_address, password), ClientFactory.GetClient());
 
       _flight = new Flight(_web3geth);
+      _policy = new Policy(_web3geth);
 
       _testing_contract = new TestingContract(_web3geth);
     }
 
     public Flight Flight { get { return _flight; } }
+
+    public Policy Policy { get { return _policy; } }
 
     public TestingContract TestingContract { get { return _testing_contract; } }
   }

@@ -8,6 +8,7 @@ namespace FDBC_Nethereum.Services
   public interface IWeb3GethService: IDisposable
   {
     Flight Flight { get; }
+    Policy Policy { get; }
     TestingContract TestingContract { get; }
   }
 }

@@ -15,5 +15,7 @@ namespace FDBC_Shared.DTO
   {
     public string name { get; set; }
     public string payload { get; set; }
+    public string transaction_receipt { get; set; }
+    public string event_log { get; set; }
   }
 }
