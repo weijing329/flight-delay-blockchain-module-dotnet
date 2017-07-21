@@ -117,24 +117,24 @@ namespace FDBC_RabbitMQ.MqServices
       //  SendI2B_Request(request).Wait();
       //}
 
-      //TODO contract_address "0xdec46ce3bc57e48fa986173e223c176a26336922"
-      // TEST Policy.SetFlightAttribute
-      foreach (var i in Enumerable.Range(0, 1))
-      {
-        var request = new I2B_Request
-        {
-          task_uuid = $"deleteBlockchainFlight_test",
-          task = new I2B_Request_Task()
-          {
-            name = "deleteBlockchainFlight",
-            payload = "{\"pid\":23,\"psn\":\"000024\",\"tenant_id\":1,\"start_date_time\":\"2017-07-19T08:00:00.000Z\",\"end_date_time\":\"2017-07-20T08:00:00.000Z\",\"start_date_time_local\":\"201707190800\",\"end_date_time_local\":\"201707200800\",\"status\":\"activated\",\"contract_address\":\"0xdec46ce3bc57e48fa986173e223c176a26336922\",\"deleted\":false,\"creation_txhash\":null,\"created_at\":\"2017-07-19T07:12:42.000Z\",\"version\":0}"
-          }
-        };
+      ////TODO contract_address "0xdec46ce3bc57e48fa986173e223c176a26336922"
+      //// TEST Policy.SetFlightAttribute
+      //foreach (var i in Enumerable.Range(0, 1))
+      //{
+      //  var request = new I2B_Request
+      //  {
+      //    task_uuid = $"deleteBlockchainFlight_test",
+      //    task = new I2B_Request_Task()
+      //    {
+      //      name = "deleteBlockchainFlight",
+      //      payload = "{\"pid\":23,\"psn\":\"000024\",\"tenant_id\":1,\"start_date_time\":\"2017-07-19T08:00:00.000Z\",\"end_date_time\":\"2017-07-20T08:00:00.000Z\",\"start_date_time_local\":\"201707190800\",\"end_date_time_local\":\"201707200800\",\"status\":\"activated\",\"contract_address\":\"0xdec46ce3bc57e48fa986173e223c176a26336922\",\"deleted\":false,\"creation_txhash\":null,\"created_at\":\"2017-07-19T07:12:42.000Z\",\"version\":0}"
+      //    }
+      //  };
 
-        //DeleteBlockchainPolicy(request).Wait();
+      //  //DeleteBlockchainPolicy(request).Wait();
 
-        SendI2B_Request(request).Wait();
-      }
+      //  SendI2B_Request(request).Wait();
+      //}
 
       // 需要 Node.js 那邊配合在 Message Propertoes 加入 type: FDBC_Shared.DTO.I2B_Request:FDBC_Shared
       // 目前測試過 PrefetchCount = 1 可以穩定處理所有message, N大於1都會在最後一批有 noacked N-1 卡住, 要關掉 blockchain module 才會 release
