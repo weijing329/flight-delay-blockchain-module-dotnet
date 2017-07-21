@@ -72,11 +72,14 @@ namespace FDBC_Nethereum.SmartContracts
       // unlock for 120 secs
 
       //bool bool_result = await web3geth.Miner.Start.SendRequestAsync(120);
+      var gas = new HexBigInteger(4700000);
+      var wei = new HexBigInteger(0);
       string tx_hash = await web3geth.Eth.DeployContract.SendRequestAsync(
         abi: contract_abi,
         contractByteCode: contract_bytecode,
         from: sender_address,
-        gas: new HexBigInteger(4700000),
+        gas: gas,
+        value: wei,
         values: new object[] {
           task_uuid,
           pid, psn,
@@ -85,23 +88,20 @@ namespace FDBC_Nethereum.SmartContracts
           start_date_time_local, end_date_time_local
         });
 
-      int web3_transaction_check_delay_in_ms = _default_retry_in_ms;
-
-      TransactionReceipt receipt = null;
-      while (receipt == null)
-      {
-        await Task.Delay(web3_transaction_check_delay_in_ms);
-        receipt = await web3geth.Eth.Transactions.GetTransactionReceipt.SendRequestAsync(tx_hash);
-      }
-
-      //bool_result = await web3geth.Miner.Stop.SendRequestAsync();
-
-      string stringified_receipt = JsonConvert.SerializeObject(receipt);
-
-      return stringified_receipt;
+      return tx_hash;
     }
 
-    public async Task<Tuple<string, string>> SetPolicyAllAttributes(
+    public async Task<Tuple<string, string>> GetTransactionResult_Create(string tx_hash)
+    {
+      TransactionReceipt receipt = await GetTransactionReceiptAsync(tx_hash);
+
+      string stringified_receipt = JsonConvert.SerializeObject(receipt);
+      string stringified_event_log = "";
+
+      return new Tuple<string, string>(stringified_receipt, stringified_event_log);
+    }
+
+    public async Task<string> SetPolicyAllAttributes(
       string contract_address,
       string task_uuid,
       string start_date_time,
@@ -132,9 +132,10 @@ namespace FDBC_Nethereum.SmartContracts
 
       Function set_function = contract.GetFunction("set_all");
 
+      var gas = new HexBigInteger(4700000);
       var wei = new HexBigInteger(0);
       var tx_hash = await set_function.SendTransactionAsync(
-        from: sender_address, gas: new HexBigInteger(4700000), value: wei,
+        from: sender_address, gas: gas, value: wei,
         functionInput: new object[] {
           task_uuid,
           start_date_time,
@@ -145,14 +146,12 @@ namespace FDBC_Nethereum.SmartContracts
           deleted
         });
 
-      int web3_transaction_check_delay_in_ms = _default_retry_in_ms;
+      return tx_hash;
+    }
 
-      TransactionReceipt receipt = null;
-      while (receipt == null)
-      {
-        await Task.Delay(web3_transaction_check_delay_in_ms);
-        receipt = await web3geth.Eth.Transactions.GetTransactionReceipt.SendRequestAsync(tx_hash);
-      }
+    public async Task<Tuple<string, string>> GetTransactionResult_SetPolicyAllAttributes(string tx_hash)
+    {
+      TransactionReceipt receipt = await GetTransactionReceiptAsync(tx_hash);
 
       string stringified_receipt = JsonConvert.SerializeObject(receipt);
       string stringified_event_log = "";
@@ -160,25 +159,9 @@ namespace FDBC_Nethereum.SmartContracts
       return new Tuple<string, string>(stringified_receipt, stringified_event_log);
     }
 
-    public async Task<Tuple<string, string>> SetPolicyAttribute(string contract_address, string task_uuid, string attribute_name, string attribute_value)
+    private async Task<TransactionReceipt> GetTransactionReceiptAsync(string tx_hash)
     {
       Web3Geth web3geth = _web3geth;
-      string sender_address = _default_sender_address;
-      string contract_abi = _contract_abi;
-
-      Contract contract = web3geth.Eth.GetContract(contract_abi, contract_address);
-
-      string task_uuid_sha3 = $"0x{_web3geth.Sha3(task_uuid)}";
-      byte[] task_uuid_sha3_bytes32 = task_uuid_sha3.HexToByteArray();
-
-      var set_event = contract.GetEvent($"event_set_{attribute_name}");
-      var set_event_filter_by_task_uuid = await set_event.CreateFilterAsync(new[] { task_uuid_sha3_bytes32 });
-
-      Function set_function = contract.GetFunction($"set_{attribute_name}");
-
-      var wei = new HexBigInteger(0);
-      var tx_hash = await set_function.SendTransactionAsync(from: sender_address, gas: new HexBigInteger(4700000), value: wei, functionInput: new object[] { task_uuid, attribute_value });
-
       int web3_transaction_check_delay_in_ms = _default_retry_in_ms;
 
       TransactionReceipt receipt = null;
@@ -188,15 +171,46 @@ namespace FDBC_Nethereum.SmartContracts
         receipt = await web3geth.Eth.Transactions.GetTransactionReceipt.SendRequestAsync(tx_hash);
       }
 
-      var set_event_logs = await set_event.GetFilterChanges<EventSetPolicyAttribute>(set_event_filter_by_task_uuid);
-
-      await web3geth.Eth.Filters.UninstallFilter.SendRequestAsync(set_event_filter_by_task_uuid);
-
-      string stringified_receipt = JsonConvert.SerializeObject(receipt);
-      string stringified_event_log = JsonConvert.SerializeObject(set_event_logs.FirstOrDefault());
-
-      return new Tuple<string, string>(stringified_receipt, stringified_event_log);
+      return receipt;
     }
+
+    //public async Task<Tuple<string, string>> SetPolicyAttribute(string contract_address, string task_uuid, string attribute_name, string attribute_value)
+    //{
+    //  Web3Geth web3geth = _web3geth;
+    //  string sender_address = _default_sender_address;
+    //  string contract_abi = _contract_abi;
+
+    //  Contract contract = web3geth.Eth.GetContract(contract_abi, contract_address);
+
+    //  string task_uuid_sha3 = $"0x{_web3geth.Sha3(task_uuid)}";
+    //  byte[] task_uuid_sha3_bytes32 = task_uuid_sha3.HexToByteArray();
+
+    //  var set_event = contract.GetEvent($"event_set_{attribute_name}");
+    //  var set_event_filter_by_task_uuid = await set_event.CreateFilterAsync(new[] { task_uuid_sha3_bytes32 });
+
+    //  Function set_function = contract.GetFunction($"set_{attribute_name}");
+
+    //  var wei = new HexBigInteger(0);
+    //  var tx_hash = await set_function.SendTransactionAsync(from: sender_address, gas: new HexBigInteger(4700000), value: wei, functionInput: new object[] { task_uuid, attribute_value });
+
+    //  int web3_transaction_check_delay_in_ms = _default_retry_in_ms;
+
+    //  TransactionReceipt receipt = null;
+    //  while (receipt == null)
+    //  {
+    //    await Task.Delay(web3_transaction_check_delay_in_ms);
+    //    receipt = await web3geth.Eth.Transactions.GetTransactionReceipt.SendRequestAsync(tx_hash);
+    //  }
+
+    //  var set_event_logs = await set_event.GetFilterChanges<EventSetPolicyAttribute>(set_event_filter_by_task_uuid);
+
+    //  await web3geth.Eth.Filters.UninstallFilter.SendRequestAsync(set_event_filter_by_task_uuid);
+
+    //  string stringified_receipt = JsonConvert.SerializeObject(receipt);
+    //  string stringified_event_log = JsonConvert.SerializeObject(set_event_logs.FirstOrDefault());
+
+    //  return new Tuple<string, string>(stringified_receipt, stringified_event_log);
+    //}
   }
 
   public class EventNewPolicy

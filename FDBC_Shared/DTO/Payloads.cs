@@ -77,6 +77,40 @@ namespace FDBC_Shared.DTO
     public int version { get; set; }
   }
 
+  public class UpdateFlight
+  {
+    public int flight_id { get; set; }
+    public int pid { get; set; }
+    public int ufid { get; set; }
+    public string flight_code { get; set; }
+    public string fs_flight_code { get; set; }
+    public int departure_utc_offset_hours { get; set; }
+    public int arrival_utc_offset_hours { get; set; }
+    public string departure_airport { get; set; }
+    public string arrival_airport { get; set; }
+    public string status { get; set; }
+    public string scheduled_departure_date { get; set; }
+    public DateTime scheduled_departure_date_time { get; set; }
+    public DateTime scheduled_departure_date_time_local { get; set; }
+    public string actual_departure_date_time { get; set; }
+    public string actual_departure_date_time_local { get; set; }
+    public DateTime scheduled_arrival_date_time { get; set; }
+    public DateTime scheduled_arrival_date_time_local { get; set; }
+    public string actual_arrival_date_time { get; set; }
+    public string actual_arrival_date_time_local { get; set; }
+    public string cancel_date_time { get; set; }
+    public string cancel_date_time_local { get; set; }
+    public string hash { get; set; }
+    public string contract_address { get; set; }
+    public string flight_status_source { get; set; }
+    public bool flight_status_fed { get; set; }
+    public string flight_status_confirmed_txhash { get; set; }
+    public string delay_notification_date_time { get; set; }
+    public bool deleted { get; set; }
+    public string creation_txhash { get; set; }
+    public DateTime created_at { get; set; }
+    public int version { get; set; }
+  }
 
   public class DeleteFlight
   {

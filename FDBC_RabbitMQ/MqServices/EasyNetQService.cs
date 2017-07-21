@@ -176,6 +176,10 @@ namespace FDBC_RabbitMQ.MqServices
           await UpdateBlockchainPolicy(request);
           break;
 
+        case "updateBlockchainFlight":
+          await UpdateBlockchainFlight(request);
+          break;
+
         default:
           break;
       }
@@ -184,7 +188,7 @@ namespace FDBC_RabbitMQ.MqServices
     private async Task CreateNewBlockchainPolicy(I2B_Request request)
     {
       CreatePolicy create_policy = JsonConvert.DeserializeObject<CreatePolicy>(request.task.payload);
-      string transaction_receipt = await _web3geth_service.Policy.Create(
+      string tx_hash = await _web3geth_service.Policy.Create(
         task_uuid: request.task_uuid,
         pid: create_policy.pid.ToString(),
         psn: create_policy.psn,
@@ -195,15 +199,15 @@ namespace FDBC_RabbitMQ.MqServices
         end_date_time_local: create_policy.end_date_time_local
         );
 
-      string event_log = "";
-      await SendB2I_Response(request.task_uuid, request.task.payload, transaction_receipt, event_log);
+      // Fire and forget
+      await BackgroundWaitTransactionResult(tx_hash, request);
     }
 
     private async Task DeleteBlockchainPolicy(I2B_Request request)
     {
       DeletePolicy delete_policy = JsonConvert.DeserializeObject<DeletePolicy>(request.task.payload);
 
-      Tuple<string, string> result = await _web3geth_service.Policy.SetPolicyAllAttributes(
+      string tx_hash = await _web3geth_service.Policy.SetPolicyAllAttributes(
         contract_address: delete_policy.contract_address,
         task_uuid: request.task_uuid,
         start_date_time: delete_policy.start_date_time.ToString(),
@@ -214,14 +218,15 @@ namespace FDBC_RabbitMQ.MqServices
         deleted: delete_policy.deleted.ToString()
         );
 
-      await SendB2I_Response(request.task_uuid, request.task.payload, result.Item1, result.Item2);
+      // Fire and forget
+      await BackgroundWaitTransactionResult(tx_hash, request);
     }
 
     private async Task UpdateBlockchainPolicy(I2B_Request request)
     {
       UpdatePolicy update_policy = JsonConvert.DeserializeObject<UpdatePolicy>(request.task.payload);
 
-      Tuple<string, string> result = await _web3geth_service.Policy.SetPolicyAllAttributes(
+      string tx_hash = await _web3geth_service.Policy.SetPolicyAllAttributes(
         contract_address: update_policy.contract_address,
         task_uuid: request.task_uuid,
         start_date_time: update_policy.start_date_time.ToString(),
@@ -232,13 +237,14 @@ namespace FDBC_RabbitMQ.MqServices
         deleted: update_policy.deleted.ToString()
         );
 
-      await SendB2I_Response(request.task_uuid, request.task.payload, result.Item1, result.Item2);
+      // Fire and forget
+      await BackgroundWaitTransactionResult(tx_hash, request);
     }
 
     private async Task CreateNewBlockchainFlight(I2B_Request request)
     {
       CreateFlight create_flight = JsonConvert.DeserializeObject<CreateFlight>(request.task.payload);
-      string transaction_receipt = await _web3geth_service.Flight.Create(
+      string tx_hash = await _web3geth_service.Flight.Create(
         task_uuid: request.task_uuid,
         flight_id: create_flight.ufid.ToString(),
         pid: create_flight.pid.ToString(),
@@ -256,15 +262,39 @@ namespace FDBC_RabbitMQ.MqServices
         scheduled_arrival_date_time_local: create_flight.scheduled_departure_date_time_local.ToString()
         );
 
-      string event_log = "";
-      await SendB2I_Response(request.task_uuid, request.task.payload, transaction_receipt, event_log);
+      // Fire and forget
+      await BackgroundWaitTransactionResult(tx_hash, request);
+    }
+
+    private async Task UpdateBlockchainFlight(I2B_Request request)
+    {
+      UpdateFlight update_flight = JsonConvert.DeserializeObject<UpdateFlight>(request.task.payload);
+
+      string tx_hash = await _web3geth_service.Flight.SetFlightAllAttributes(
+        contract_address: update_flight.contract_address,
+        task_uuid: request.task_uuid,
+        status: update_flight.status,
+        actual_departure_date_time: update_flight.actual_departure_date_time,
+        actual_departure_date_time_local: update_flight.actual_departure_date_time_local,
+        actual_arrival_date_time: update_flight.actual_arrival_date_time,
+        actual_arrival_date_time_local: update_flight.actual_arrival_date_time_local,
+        cancel_date_time: update_flight.cancel_date_time,
+        cancel_date_time_local: update_flight.cancel_date_time_local,
+        deleted: update_flight.deleted.ToString(),
+        flight_status_source: update_flight.flight_status_source,
+        flight_status_fed: update_flight.flight_status_fed.ToString(),
+        delay_notification_date_time: update_flight.delay_notification_date_time
+        );
+
+      // Fire and forget
+      await BackgroundWaitTransactionResult(tx_hash, request);
     }
 
     private async Task DeleteBlockchainFlight(I2B_Request request)
     {
       DeleteFlight delete_flight = JsonConvert.DeserializeObject<DeleteFlight>(request.task.payload);
 
-      Tuple<string, string> result = await _web3geth_service.Flight.SetFlightAllAttributes(
+      string tx_hash = await _web3geth_service.Flight.SetFlightAllAttributes(
         contract_address: delete_flight.contract_address,
         task_uuid: request.task_uuid,
         status: delete_flight.status,
@@ -280,7 +310,49 @@ namespace FDBC_RabbitMQ.MqServices
         delay_notification_date_time: delete_flight.delay_notification_date_time
         );
 
-      await SendB2I_Response(request.task_uuid, request.task.payload, result.Item1, result.Item2);
+      // Fire and forget
+      await BackgroundWaitTransactionResult(tx_hash, request);
+    }
+
+
+    private async Task BackgroundWaitTransactionResult(string tx_hash, I2B_Request request)
+    {
+      Tuple<string, string> result = new Tuple<string, string>("", "");
+
+      switch (request.task.name)
+      {
+        case "createNewBlockchainPolicy":
+          result = await _web3geth_service.Policy.GetTransactionResult_Create(tx_hash);
+          break;
+
+        case "createNewBlockchainFlight":
+          result = await _web3geth_service.Flight.GetTransactionResult_Create(tx_hash);
+          break;
+
+        case "deleteBlockchainPolicy":
+          result = await _web3geth_service.Policy.GetTransactionResult_SetPolicyAllAttributes(tx_hash);
+          break;
+
+        case "deleteBlockchainFlight":
+          result = await _web3geth_service.Flight.GetTransactionResult_SetFlightAllAttributes(tx_hash);
+          break;
+
+        case "updateBlockchainPolicy":
+          result = await _web3geth_service.Policy.GetTransactionResult_SetPolicyAllAttributes(tx_hash);
+          break;
+
+        case "updateBlockchainFlight":
+          result = await _web3geth_service.Flight.GetTransactionResult_SetFlightAllAttributes(tx_hash);
+          break;
+
+        default:
+          break;
+      }
+
+      string transaction_receipt = result.Item1;
+      string event_log = result.Item2;
+
+      await SendB2I_Response(request.task_uuid, request.task.payload, transaction_receipt, event_log);
     }
 
     public async Task SendI2B_Request(I2B_Request request)
