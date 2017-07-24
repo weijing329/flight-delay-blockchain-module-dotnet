@@ -51,7 +51,8 @@ namespace FDBC_Main
 
       //services.AddRawRabbit();
       //services.AddSingleton(new RawRabbitService(Configuration));
-      services.AddSingleton(new EasyNetQService(Configuration, Web3GethService));
+      //services.AddSingleton(new EasyNetQService(Configuration, Web3GethService));
+      services.AddSingleton<EasyNetQService>();
 
       // Add framework services.
       services.AddMvc();

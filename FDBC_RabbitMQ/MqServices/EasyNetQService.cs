@@ -14,6 +14,7 @@ using EasyNetQ.Consumer;
 using FDBC_Nethereum.Services;
 using Newtonsoft.Json;
 using System.Linq;
+using Microsoft.Extensions.Logging;
 
 namespace FDBC_RabbitMQ.MqServices
 {
@@ -28,6 +29,8 @@ namespace FDBC_RabbitMQ.MqServices
 
     private IWeb3GethService _web3geth_service;
 
+    private readonly ILogger<EasyNetQService> _logger;
+
     public void Dispose()
     {
       _client.Dispose();
@@ -35,7 +38,7 @@ namespace FDBC_RabbitMQ.MqServices
       _web3geth_service.Dispose();
     }
 
-    public EasyNetQService(IConfiguration configuration, IWeb3GethService web3geth_service)
+    public EasyNetQService(IConfiguration configuration, IWeb3GethService web3geth_service, ILogger<EasyNetQService> logger)
     {
       _settings = configuration.GetSection("RabbitMQSettings").Get<RabbitMQSettings>();
 
@@ -53,6 +56,8 @@ namespace FDBC_RabbitMQ.MqServices
       _queue_blockchain2intermdiate = _client.Advanced.QueueDeclare(name: QueueNameFormatting("blockchain2intermediate"));
 
       _web3geth_service = web3geth_service;
+
+      _logger = logger;
 
       //// TEST Flight.Create
       //foreach (var i in Enumerable.Range(0, 10))
@@ -187,6 +192,8 @@ namespace FDBC_RabbitMQ.MqServices
 
     private async Task CreateNewBlockchainPolicy(I2B_Request request)
     {
+      _logger.LogInformation("Executing: EasyNetQService.CreateNewBlockchainPolicy()");
+
       CreatePolicy create_policy = JsonConvert.DeserializeObject<CreatePolicy>(request.task.payload);
       string tx_hash = await _web3geth_service.Policy.Create(
         task_uuid: request.task_uuid,
@@ -205,6 +212,8 @@ namespace FDBC_RabbitMQ.MqServices
 
     private async Task DeleteBlockchainPolicy(I2B_Request request)
     {
+      _logger.LogInformation("Executing: EasyNetQService.DeleteBlockchainPolicy()");
+
       DeletePolicy delete_policy = JsonConvert.DeserializeObject<DeletePolicy>(request.task.payload);
 
       string tx_hash = await _web3geth_service.Policy.SetPolicyAllAttributes(
@@ -224,6 +233,8 @@ namespace FDBC_RabbitMQ.MqServices
 
     private async Task UpdateBlockchainPolicy(I2B_Request request)
     {
+      _logger.LogInformation("Executing: EasyNetQService.UpdateBlockchainPolicy()");
+
       UpdatePolicy update_policy = JsonConvert.DeserializeObject<UpdatePolicy>(request.task.payload);
 
       string tx_hash = await _web3geth_service.Policy.SetPolicyAllAttributes(
@@ -243,6 +254,8 @@ namespace FDBC_RabbitMQ.MqServices
 
     private async Task CreateNewBlockchainFlight(I2B_Request request)
     {
+      _logger.LogInformation("Executing: EasyNetQService.CreateNewBlockchainFlight()");
+
       CreateFlight create_flight = JsonConvert.DeserializeObject<CreateFlight>(request.task.payload);
       string tx_hash = await _web3geth_service.Flight.Create(
         task_uuid: request.task_uuid,
@@ -268,6 +281,8 @@ namespace FDBC_RabbitMQ.MqServices
 
     private async Task UpdateBlockchainFlight(I2B_Request request)
     {
+      _logger.LogInformation("Executing: EasyNetQService.UpdateBlockchainFlight()");
+
       UpdateFlight update_flight = JsonConvert.DeserializeObject<UpdateFlight>(request.task.payload);
 
       string tx_hash = await _web3geth_service.Flight.SetFlightAllAttributes(
@@ -292,6 +307,8 @@ namespace FDBC_RabbitMQ.MqServices
 
     private async Task DeleteBlockchainFlight(I2B_Request request)
     {
+      _logger.LogInformation("Executing: EasyNetQService.DeleteBlockchainFlight()");
+
       DeleteFlight delete_flight = JsonConvert.DeserializeObject<DeleteFlight>(request.task.payload);
 
       string tx_hash = await _web3geth_service.Flight.SetFlightAllAttributes(
@@ -357,6 +374,8 @@ namespace FDBC_RabbitMQ.MqServices
 
     public async Task SendI2B_Request(I2B_Request request)
     {
+      _logger.LogInformation("Executing: EasyNetQService.SendI2B_Request()");
+
       var msg = new Message<I2B_Request>(request);
       await _client.Advanced.PublishAsync(Exchange.GetDefault(), QueueNameFormatting("intermediate2blockchain"), false, msg);
     }
@@ -377,6 +396,8 @@ namespace FDBC_RabbitMQ.MqServices
 
     public async Task SendB2I_Response(string task_uuid, string payload, string transaction_receipt, string event_log)
     {
+      _logger.LogInformation("Executing: EasyNetQService.SendB2I_Response()");
+
       //await _client.SendAsync(queue: QueueNameFormatting("blockchain2intermdiate"), message: response);
       var response = new B2I_Response()
       {
