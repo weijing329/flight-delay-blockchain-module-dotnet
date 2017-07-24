@@ -40,6 +40,8 @@ namespace FDBC_Nethereum.SmartContracts
     private readonly string _contract_abi;
     private readonly string _contract_bytecode;
 
+    private Web3Geth web3geth => _web3geth;
+
     public Policy(Web3Geth web3geth)
     {
       _web3geth = web3geth;
@@ -61,7 +63,6 @@ namespace FDBC_Nethereum.SmartContracts
       string start_date_time, string end_date_time,
       string start_date_time_local, string end_date_time_local)
     {
-      Web3Geth web3geth = _web3geth;
       string sender_address = _default_sender_address;
       string contract_abi = _contract_abi;
       string contract_bytecode = _contract_bytecode;
@@ -121,7 +122,6 @@ namespace FDBC_Nethereum.SmartContracts
       deleted = deleted ?? "";
 
       // Web3
-      Web3Geth web3geth = _web3geth;
       string sender_address = _default_sender_address;
       string contract_abi = _contract_abi;
 
@@ -161,7 +161,6 @@ namespace FDBC_Nethereum.SmartContracts
 
     private async Task<TransactionReceipt> GetTransactionReceiptAsync(string tx_hash)
     {
-      Web3Geth web3geth = _web3geth;
       int web3_transaction_check_delay_in_ms = _default_retry_in_ms;
 
       TransactionReceipt receipt = null;
