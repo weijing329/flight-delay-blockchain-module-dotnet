@@ -16,6 +16,7 @@ using FDBC_RabbitMQ.Config;
 using FDBC_Nethereum.Services;
 
 using FDBC_Nethereum.Helpers;
+using Serilog;
 
 namespace FDBC_Main
 {
@@ -23,6 +24,11 @@ namespace FDBC_Main
   {
     public Startup(IHostingEnvironment env)
     {
+      Log.Logger = new LoggerConfiguration()
+       .Enrich.FromLogContext()
+       .WriteTo.LiterateConsole()
+       .CreateLogger();
+
       //var builder = new ConfigurationBuilder()
       //    .SetBasePath(env.ContentRootPath)
       //    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
@@ -59,14 +65,17 @@ namespace FDBC_Main
     }
 
     // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-    public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory)
+    public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory, IApplicationLifetime appLifetime)
     {
-      loggerFactory.AddConsole(Configuration.GetSection("Logging"));
-      loggerFactory.AddDebug();
+      loggerFactory.AddSerilog();
+      loggerFactory.AddFile("Logs/FDDF_WebAPI-{Date}.txt", isJson: false);
+      //loggerFactory.AddConsole(Configuration.GetSection("Logging"));
+      //loggerFactory.AddDebug();
 
       app.UseMvc();
 
-      //Web3Helper.GetValue();
+      // Ensure any buffered events are sent at shutdown
+      appLifetime.ApplicationStopped.Register(Log.CloseAndFlush);
     }
   }
 }
