@@ -28,7 +28,6 @@
     <DotNetCliToolReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Tools" Version="1.0.1" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\FDBC_Hangfire\FDBC_Hangfire.csproj" />
     <ProjectReference Include="..\FDBC_Nethereum\FDBC_Nethereum.csproj" />
     <ProjectReference Include="..\FDBC_RabbitMQ\FDBC_RabbitMQ.csproj" />
     <ProjectReference Include="..\FDBC_Shared\FDBC_Shared.csproj" />

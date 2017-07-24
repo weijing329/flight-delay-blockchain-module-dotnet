@@ -9,6 +9,5 @@ namespace FDBC_Nethereum.Services
   {
     Flight Flight { get; }
     Policy Policy { get; }
-    TestingContract TestingContract { get; }
   }
 }
