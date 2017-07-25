@@ -28,7 +28,7 @@ namespace FDBC_RabbitMQ.MqServices
 
     private IWeb3GethService _web3geth_service;
 
-    //private readonly ILogger<EasyNetQService> _logger;
+    private readonly ILogger<EasyNetQService> _logger;
 
     public void Dispose()
     {
@@ -37,8 +37,8 @@ namespace FDBC_RabbitMQ.MqServices
       _web3geth_service.Dispose();
     }
 
-    //public EasyNetQService(IConfiguration configuration, IWeb3GethService web3geth_service, ILogger<EasyNetQService> logger)
-    public EasyNetQService(IConfiguration configuration, IWeb3GethService web3geth_service)
+    public EasyNetQService(IConfiguration configuration, IWeb3GethService web3geth_service, ILogger<EasyNetQService> logger)
+    //public EasyNetQService(IConfiguration configuration, IWeb3GethService web3geth_service)
     {
       _settings = configuration.GetSection("RabbitMQSettings").Get<RabbitMQSettings>();
 
@@ -57,25 +57,25 @@ namespace FDBC_RabbitMQ.MqServices
 
       _web3geth_service = web3geth_service;
 
-      //_logger = logger;
+      _logger = logger;
 
-      //_logger.LogInformation("Initialized: EasyNetQService");
+      _logger.LogDebug("Initialized: EasyNetQService");
 
-      // TEST Flight.Create
-      foreach (var i in Enumerable.Range(0, 3))
-      {
-        var request = new I2B_Request
-        {
-          task_uuid = $"createNewBlockchainFlight_test{i}",
-          task = new I2B_Request_Task()
-          {
-            name = "createNewBlockchainFlight",
-            payload = "{\"pid\":28,\"ufid\":72,\"flight_code\":\"CX564\",\"fs_flight_code\":\"CX564\",\"departure_airport\":\"HKG\",\"arrival_airport\":\"TPE\",\"departure_utc_offset_hours\":8,\"arrival_utc_offset_hours\":8,\"scheduled_departure_date\":20170719,\"scheduled_departure_date_time\":\"2017-07-19T05:10:00Z\",\"scheduled_departure_date_time_local\":\"2017-07-19T13:10:00+08:00\",\"scheduled_arrival_date_time\":\"2017-07-19T07:10:00Z\",\"scheduled_arrival_date_time_local\":\"2017-07-19T15:10:00+08:00\",\"hash\":\"0xad037ad2f98401ea9b02b8fa4373e444858836e1acbddf2cea73c126dca40083\"}"
-          }
-        };
+      //// TEST Flight.Create
+      //foreach (var i in Enumerable.Range(0, 20))
+      //{
+      //  var request = new I2B_Request
+      //  {
+      //    task_uuid = $"createNewBlockchainFlight_test{i}",
+      //    task = new I2B_Request_Task()
+      //    {
+      //      name = "createNewBlockchainFlight",
+      //      payload = "{\"pid\":28,\"ufid\":72,\"flight_code\":\"CX564\",\"fs_flight_code\":\"CX564\",\"departure_airport\":\"HKG\",\"arrival_airport\":\"TPE\",\"departure_utc_offset_hours\":8,\"arrival_utc_offset_hours\":8,\"scheduled_departure_date\":20170719,\"scheduled_departure_date_time\":\"2017-07-19T05:10:00Z\",\"scheduled_departure_date_time_local\":\"2017-07-19T13:10:00+08:00\",\"scheduled_arrival_date_time\":\"2017-07-19T07:10:00Z\",\"scheduled_arrival_date_time_local\":\"2017-07-19T15:10:00+08:00\",\"hash\":\"0xad037ad2f98401ea9b02b8fa4373e444858836e1acbddf2cea73c126dca40083\"}"
+      //    }
+      //  };
 
-        SendI2B_Request(request).Wait();
-      }
+      //  SendI2B_Request(request).Wait();
+      //}
 
       //// TEST Flight.SetFlightAttribute
       //foreach (var i in Enumerable.Range(0, 1))
@@ -194,7 +194,7 @@ namespace FDBC_RabbitMQ.MqServices
 
     private async Task CreateNewBlockchainPolicy(I2B_Request request)
     {
-      //_logger.LogInformation("Executing: EasyNetQService.CreateNewBlockchainPolicy()");
+      _logger.LogDebug("Executing: EasyNetQService.CreateNewBlockchainPolicy()");
 
       CreatePolicy create_policy = JsonConvert.DeserializeObject<CreatePolicy>(request.task.payload);
       string tx_hash = await _web3geth_service.Policy.Create(
@@ -214,7 +214,7 @@ namespace FDBC_RabbitMQ.MqServices
 
     private async Task DeleteBlockchainPolicy(I2B_Request request)
     {
-      //_logger.LogInformation("Executing: EasyNetQService.DeleteBlockchainPolicy()");
+      _logger.LogDebug("Executing: EasyNetQService.DeleteBlockchainPolicy()");
 
       DeletePolicy delete_policy = JsonConvert.DeserializeObject<DeletePolicy>(request.task.payload);
 
@@ -235,7 +235,7 @@ namespace FDBC_RabbitMQ.MqServices
 
     private async Task UpdateBlockchainPolicy(I2B_Request request)
     {
-      //_logger.LogInformation("Executing: EasyNetQService.UpdateBlockchainPolicy()");
+      _logger.LogDebug("Executing: EasyNetQService.UpdateBlockchainPolicy()");
 
       UpdatePolicy update_policy = JsonConvert.DeserializeObject<UpdatePolicy>(request.task.payload);
 
@@ -256,7 +256,7 @@ namespace FDBC_RabbitMQ.MqServices
 
     private async Task CreateNewBlockchainFlight(I2B_Request request)
     {
-      //_logger.LogInformation("Executing: EasyNetQService.CreateNewBlockchainFlight()");
+      _logger.LogDebug("Executing: EasyNetQService.CreateNewBlockchainFlight({task_uuid})", request.task_uuid);
 
       CreateFlight create_flight = JsonConvert.DeserializeObject<CreateFlight>(request.task.payload);
       string tx_hash = await _web3geth_service.Flight.Create(
@@ -278,12 +278,13 @@ namespace FDBC_RabbitMQ.MqServices
         );
 
       // Fire and forget
-      await BackgroundWaitTransactionResult(tx_hash, request);
+      //await BackgroundWaitTransactionResult(tx_hash, request);
+      BackgroundWaitTransactionResult(tx_hash, request);
     }
 
     private async Task UpdateBlockchainFlight(I2B_Request request)
     {
-      //_logger.LogInformation("Executing: EasyNetQService.UpdateBlockchainFlight()");
+      _logger.LogDebug("Executing: EasyNetQService.UpdateBlockchainFlight()");
 
       UpdateFlight update_flight = JsonConvert.DeserializeObject<UpdateFlight>(request.task.payload);
 
@@ -309,7 +310,7 @@ namespace FDBC_RabbitMQ.MqServices
 
     private async Task DeleteBlockchainFlight(I2B_Request request)
     {
-      //_logger.LogInformation("Executing: EasyNetQService.DeleteBlockchainFlight()");
+      _logger.LogDebug("Executing: EasyNetQService.DeleteBlockchainFlight()");
 
       DeleteFlight delete_flight = JsonConvert.DeserializeObject<DeleteFlight>(request.task.payload);
 
@@ -336,6 +337,8 @@ namespace FDBC_RabbitMQ.MqServices
 
     private async Task BackgroundWaitTransactionResult(string tx_hash, I2B_Request request)
     {
+      _logger.LogDebug("Executing: EasyNetQService.BackgroundWaitTransactionResult({task_uuid})", request.task_uuid);
+
       Tuple<string, string> result = new Tuple<string, string>("", "");
 
       switch (request.task.name)
@@ -376,7 +379,8 @@ namespace FDBC_RabbitMQ.MqServices
 
     public async Task SendI2B_Request(I2B_Request request)
     {
-      //_logger.LogInformation("Executing: EasyNetQService.SendI2B_Request()");
+      //_logger.LogDebug("Executing: EasyNetQService.SendI2B_Request({@request})", request);
+      _logger.LogDebug("Executing: EasyNetQService.SendI2B_Request({task_uuid})", request.task_uuid);
 
       var msg = new Message<I2B_Request>(request);
       await _client.Advanced.PublishAsync(Exchange.GetDefault(), QueueNameFormatting("intermediate2blockchain"), false, msg);
@@ -398,8 +402,6 @@ namespace FDBC_RabbitMQ.MqServices
 
     public async Task SendB2I_Response(string task_uuid, string payload, string transaction_receipt, string event_log)
     {
-      //_logger.LogInformation("Executing: EasyNetQService.SendB2I_Response()");
-
       //await _client.SendAsync(queue: QueueNameFormatting("blockchain2intermdiate"), message: response);
       var response = new B2I_Response()
       {
@@ -413,9 +415,10 @@ namespace FDBC_RabbitMQ.MqServices
         }
       };
 
+      _logger.LogDebug("Executing: EasyNetQService.SendB2I_Response({task_uuid})", response.task_uuid);
+
       var msg = new Message<B2I_Response>(response);
       await _client.Advanced.PublishAsync(Exchange.GetDefault(), QueueNameFormatting("blockchain2intermediate"), false, msg);
-
     }
 
     private string QueueNameFormatting(string queue_name)

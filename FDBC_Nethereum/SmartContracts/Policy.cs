@@ -35,7 +35,7 @@ namespace FDBC_Nethereum.SmartContracts
 {
   public class Policy
   {
-    //private readonly ILogger<Web3GethService> _logger;
+    private readonly ILogger<Web3GethService> _logger;
 
     private readonly BlockchainSettings _settings;
 
@@ -43,12 +43,12 @@ namespace FDBC_Nethereum.SmartContracts
 
     private Web3Geth web3geth => _web3geth;
 
-    //public Policy(Web3Geth web3geth, BlockchainSettings settings, ILogger<Web3GethService> logger)
-    public Policy(Web3Geth web3geth, BlockchainSettings settings)
+    public Policy(Web3Geth web3geth, BlockchainSettings settings, ILogger<Web3GethService> logger)
+    //public Policy(Web3Geth web3geth, BlockchainSettings settings)
     {
       _web3geth = web3geth;
       _settings = settings;
-      //_logger = logger;
+      _logger = logger;
     }
 
     public async Task<string> Create(

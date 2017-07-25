@@ -40,23 +40,23 @@ namespace FDBC_Nethereum.Services
     {
     }
 
-    //public Web3GethService(IConfiguration configuration, ILogger<Web3GethService> logger)
-    public Web3GethService(IConfiguration configuration)
+    public Web3GethService(IConfiguration configuration, ILogger<Web3GethService> logger)
+    //public Web3GethService(IConfiguration configuration)
     {
       _settings = configuration.GetSection("BlockchainSettings").Get<BlockchainSettings>();
-      //_logger = logger;
+      _logger = logger;
 
       string sender_address = _settings.default_sender_address;
       string password = _settings.default_sender_password;
 
       _web3geth = new Web3Geth(new ManagedAccount(sender_address, password), ClientFactory.GetClient(_settings.rpcapi_host));
 
-      //_flight = new Flight(_web3geth, _settings, _logger);
-      //_policy = new Policy(_web3geth, _settings, _logger);
-      _flight = new Flight(_web3geth, _settings);
-      _policy = new Policy(_web3geth, _settings);
+      _flight = new Flight(_web3geth, _settings, _logger);
+      _policy = new Policy(_web3geth, _settings, _logger);
+      //_flight = new Flight(_web3geth, _settings);
+      //_policy = new Policy(_web3geth, _settings);
 
-      //_logger.LogInformation("Initialized: Web3GethService");
+      _logger.LogDebug("Initialized: Web3GethService");
     }
 
     public Flight Flight { get { return _flight; } }

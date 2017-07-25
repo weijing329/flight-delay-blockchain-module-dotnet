@@ -17,6 +17,8 @@ using FDBC_Nethereum.Services;
 
 using FDBC_Nethereum.Config;
 using Serilog;
+using Serilog.Core;
+using Serilog.Events;
 
 namespace FDBC_Main
 {
@@ -24,9 +26,15 @@ namespace FDBC_Main
   {
     public Startup(IHostingEnvironment env)
     {
+      var levelSwitch = new LoggingLevelSwitch();
+      levelSwitch.MinimumLevel = LogEventLevel.Debug;
+
       Log.Logger = new LoggerConfiguration()
+       .MinimumLevel.ControlledBy(levelSwitch)
        .Enrich.FromLogContext()
        .WriteTo.LiterateConsole()
+       .WriteTo.RollingFile("Logs/FDBC_Main-{Date}.txt")
+       //.WriteTo.LiterateConsole(restrictedToMinimumLevel: LogEventLevel.Information)
        .CreateLogger();
 
       //var builder = new ConfigurationBuilder()
@@ -53,18 +61,44 @@ namespace FDBC_Main
       // add the configuration object
       services.AddSingleton<IConfiguration>(Configuration);
 
-      //Web3GethService = new Web3GethService(Configuration, Log.Logger);
-      Web3GethService = new Web3GethService(Configuration);
+      IServiceProvider sp = services.BuildServiceProvider();
+      ILoggerFactory loggerFactory = sp.GetRequiredService<ILoggerFactory>();
+      //loggerFactory.AddDebug();
+      loggerFactory.AddSerilog();
+      //loggerFactory.AddFile("Logs/FDBC_Main-{Date}.txt", isJson: false);
+
+      ILogger<Web3GethService> web3_logger = loggerFactory.CreateLogger<Web3GethService>();
+
+      //Web3GethService = new Web3GethService(Configuration);
+      Web3GethService = new Web3GethService(Configuration, web3_logger);
       services.AddSingleton<IWeb3GethService>(Web3GethService);
+      //services.AddSingleton<IWeb3GethService, Web3GethService>((ctx) =>
+      //{
+      //  ILoggerFactory factory = ctx.GetRequiredService<ILoggerFactory>();
+      //  ILogger<Web3GethService> logger = factory.CreateLogger<Web3GethService>();
+      //  return new Web3GethService(Configuration, logger);
+      //});
       //services.AddSingleton<Web3GethService>();
+
+      ILogger<EasyNetQService> rabbitmq_logger = loggerFactory.CreateLogger<EasyNetQService>();
 
       //services.AddRawRabbit();
       //services.AddSingleton(new RawRabbitService(Configuration));
-      services.AddSingleton(new EasyNetQService(Configuration, Web3GethService));
+
+      services.AddSingleton(new EasyNetQService(Configuration, Web3GethService, rabbitmq_logger));
+      //services.AddSingleton<EasyNetQService>((ctx) =>
+      //{
+      //  IWeb3GethService web3geth_service = ctx.GetRequiredService<IWeb3GethService>();
+      //  return new EasyNetQService(Configuration, web3geth_service);
+      //});
       //services.AddSingleton<EasyNetQService>();
+      //services.AddSingleton<EasyNetQService>((ctx) => {
+      //  IWeb3GethService web3geth_svc = ctx.GetRequiredService<IWeb3GethService>();
+      //  return new EasyNetQService(Configuration, web3geth_svc);
+      //});
 
       // Add framework services.
-      services.AddMvc();
+      //services.AddMvc();
     }
 
     // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -73,10 +107,10 @@ namespace FDBC_Main
       //loggerFactory.AddConsole(Configuration.GetSection("Logging"));
       //loggerFactory.AddDebug();
 
-      loggerFactory.AddSerilog();
-      loggerFactory.AddFile("Logs/FDBC_Main-{Date}.txt", isJson: false);
+      //loggerFactory.AddSerilog();
+      //loggerFactory.AddFile("Logs/FDBC_Main-{Date}.txt", isJson: false);
 
-      app.UseMvc();
+      //app.UseMvc();
 
       // Ensure any buffered events are sent at shutdown
       appLifetime.ApplicationStopped.Register(Log.CloseAndFlush);
