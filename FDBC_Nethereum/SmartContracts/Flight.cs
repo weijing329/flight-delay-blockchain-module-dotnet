@@ -49,7 +49,7 @@ namespace FDBC_Nethereum.SmartContracts
       _logger = logger;
     }
 
-    public async Task<string> Create(
+    public async Task<string> CreateAsync(
       string task_uuid,
       string flight_id, string pid, string ufid,
       string flight_code, string fs_flight_code,
@@ -59,22 +59,25 @@ namespace FDBC_Nethereum.SmartContracts
       string scheduled_departure_date_time, string scheduled_departure_date_time_local,
       string scheduled_arrival_date_time, string scheduled_arrival_date_time_local)
     {
+      _logger.LogDebug("FDBC_Nethereum.SmartContracts.Flight.CreateAsync({task_uuid})", task_uuid);
+
       string sender_address = _settings.default_sender_address;
       string contract_abi = _settings.flight_contract_abi;
       string contract_bytecode = _settings.flight_contract_bytecode;
 
       //====================================
       // deploy contract
-
-      var gas = new HexBigInteger(_settings.flight_contract_deploy_gas);
-      var wei = new HexBigInteger(0);
-      string tx_hash = await web3geth.Eth.DeployContract.SendRequestAsync(
-        abi: contract_abi,
-        contractByteCode: contract_bytecode,
-        from: sender_address,
-        gas: gas,
-        value: wei,
-        values: new object[] {
+      try
+      {
+        var gas = new HexBigInteger(_settings.flight_contract_deploy_gas);
+        var wei = new HexBigInteger(0);
+        string tx_hash = await web3geth.Eth.DeployContract.SendRequestAsync(
+          abi: contract_abi,
+          contractByteCode: contract_bytecode,
+          from: sender_address,
+          gas: gas,
+          value: wei,
+          values: new object[] {
           task_uuid,
           flight_id,
           pid,
@@ -90,12 +93,18 @@ namespace FDBC_Nethereum.SmartContracts
           scheduled_departure_date_time_local,
           scheduled_arrival_date_time,
           scheduled_arrival_date_time_local
-        });
+          });
 
-      return tx_hash;
+        return tx_hash;
+      }
+      catch (Exception ex)
+      {
+        _logger.LogError("Exception {@ex}", ex);
+        throw ex;
+      }
     }
 
-    public async Task<Tuple<string, string>> GetTransactionResult_Create(string tx_hash)
+    public async Task<Tuple<string, string>> GetTransactionResultAsync_Create(string tx_hash)
     {
       TransactionReceipt receipt = await GetTransactionReceiptAsync(tx_hash);
 
@@ -179,13 +188,19 @@ namespace FDBC_Nethereum.SmartContracts
 
     private async Task<TransactionReceipt> GetTransactionReceiptAsync(string tx_hash)
     {
+      //_logger.LogDebug("Executing: Web3GethService.SmartContracts.Flight.GetTransactionReceiptAsync({tx_hash})", tx_hash);
+
       int web3_transaction_check_delay_in_ms = _settings.default_retry_in_ms;
 
       TransactionReceipt receipt = null;
-      while (receipt == null)
+      int request_count = 0;
+      while ((receipt == null) && (request_count < _settings.max_retry_times))
       {
         await Task.Delay(web3_transaction_check_delay_in_ms);
         receipt = await web3geth.Eth.Transactions.GetTransactionReceipt.SendRequestAsync(tx_hash);
+        request_count += 1;
+
+        _logger.LogDebug("GetTransactionReceipt({tx_hash}, request_count = {request_count}) = {@receipt}", tx_hash, request_count, receipt);
       }
 
       return receipt;

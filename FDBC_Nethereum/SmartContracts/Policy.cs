@@ -51,7 +51,7 @@ namespace FDBC_Nethereum.SmartContracts
       _logger = logger;
     }
 
-    public async Task<string> Create(
+    public async Task<string> CreateAsync(
       string task_uuid,
       string pid, string psn,
       string tenant_id,
@@ -87,7 +87,7 @@ namespace FDBC_Nethereum.SmartContracts
       return tx_hash;
     }
 
-    public async Task<Tuple<string, string>> GetTransactionResult_Create(string tx_hash)
+    public async Task<Tuple<string, string>> GetTransactionResultAsync_Create(string tx_hash)
     {
       TransactionReceipt receipt = await GetTransactionReceiptAsync(tx_hash);
 
