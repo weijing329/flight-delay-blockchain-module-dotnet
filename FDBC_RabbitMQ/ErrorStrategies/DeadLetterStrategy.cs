@@ -35,6 +35,7 @@ namespace FDBC_RabbitMQ.ErrorStrategies
 
       if (retries < 3)
         return AckStrategies.NackWithoutRequeue;
+
       return base.HandleConsumerError(context, exception);
     }
   }

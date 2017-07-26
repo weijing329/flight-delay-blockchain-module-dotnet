@@ -20,7 +20,7 @@ namespace FDBC_RabbitMQ.MqServices
 {
   public class EasyNetQService : IDisposable
   {
-    private IBus _client;
+    private IBus _bus;
     //private IAdvancedBus _advanced_client;
     private readonly RabbitMQSettings _rabbitmq_settings;
     private readonly BlockchainSettings _blockchain_settings;
@@ -34,7 +34,7 @@ namespace FDBC_RabbitMQ.MqServices
 
     public void Dispose()
     {
-      _client.Dispose();
+      _bus.Dispose();
 
       _web3geth_service.Dispose();
     }
@@ -45,18 +45,21 @@ namespace FDBC_RabbitMQ.MqServices
       _rabbitmq_settings = configuration.GetSection("RabbitMQSettings").Get<RabbitMQSettings>();
       _blockchain_settings = configuration.GetSection("BlockchainSettings").Get<BlockchainSettings>();
 
-      _client = RabbitHutch.CreateBus(configuration.GetConnectionString("RabbitMQConnectionString"));
+      //_bus = RabbitHutch.CreateBus(configuration.GetConnectionString("RabbitMQConnectionString"));
 
-      //_client = RabbitHutch.CreateBus(configuration.GetConnectionString("RabbitMQConnectionString"), 
+      //_bus = RabbitHutch.CreateBus(configuration.GetConnectionString("RabbitMQConnectionString"), 
       //  serviceRegister => serviceRegister.Register<IConsumerErrorStrategy, DeadLetterStrategy>());
 
-      //_client.Receive<string>(queue: QueueNameFormatting("intermediate2blockchain"), onMessage: message => TestString(message));
+      _bus = RabbitHutch.CreateBus(configuration.GetConnectionString("RabbitMQConnectionString"),
+        serviceRegister => serviceRegister.Register<IConsumerErrorStrategy, AlwaysRequeueErrorStrategy>());
+
+      //_bus.Receive<string>(queue: QueueNameFormatting("intermediate2blockchain"), onMessage: message => TestString(message));
 
       //_advanced_client = RabbitHutch.CreateBus(configuration.GetConnectionString("RabbitMQConnectionString")).Advanced;
 
-      _queue_intermediate2blockchain = _client.Advanced.QueueDeclare(name: QueueNameFormatting("intermediate2blockchain"));
+      _queue_intermediate2blockchain = _bus.Advanced.QueueDeclare(name: QueueNameFormatting("intermediate2blockchain"));
 
-      _queue_blockchain2intermdiate = _client.Advanced.QueueDeclare(name: QueueNameFormatting("blockchain2intermediate"));
+      _queue_blockchain2intermdiate = _bus.Advanced.QueueDeclare(name: QueueNameFormatting("blockchain2intermediate"));
 
       _web3geth_service = web3geth_service;
 
@@ -149,7 +152,7 @@ namespace FDBC_RabbitMQ.MqServices
       // 需要 Node.js 那邊配合在 Message Propertoes 加入 type: FDBC_Shared.DTO.I2B_Request:FDBC_Shared
       // 目前測試過 PrefetchCount = 1 可以穩定處理所有message, N大於1都會在最後一批有 noacked N-1 卡住, 要關掉 blockchain module 才會 release
       ushort prefetch_count = 1;
-      _client.Advanced.Consume<I2B_Request>(
+      _bus.Advanced.Consume<I2B_Request>(
         _queue_intermediate2blockchain,
         (msg, info) => OnReceiving_I2B_Request(msg, info),
         configure => configure.WithPrefetchCount(prefetch_count)
@@ -385,7 +388,7 @@ namespace FDBC_RabbitMQ.MqServices
       _logger.LogDebug("Executing: EasyNetQService.SendI2B_Request({task_uuid})", request.task_uuid);
 
       var msg = new Message<I2B_Request>(request);
-      await _client.Advanced.PublishAsync(Exchange.GetDefault(), QueueNameFormatting("intermediate2blockchain"), false, msg);
+      await _bus.Advanced.PublishAsync(Exchange.GetDefault(), QueueNameFormatting("intermediate2blockchain"), false, msg);
     }
 
     //public async Task SendI2B_Response(I2B_Response response)
@@ -420,7 +423,7 @@ namespace FDBC_RabbitMQ.MqServices
       _logger.LogDebug("Executing: EasyNetQService.SendB2I_Response({task_uuid})", response.task_uuid);
 
       var msg = new Message<B2I_Response>(response);
-      await _client.Advanced.PublishAsync(Exchange.GetDefault(), QueueNameFormatting("blockchain2intermediate"), false, msg);
+      await _bus.Advanced.PublishAsync(Exchange.GetDefault(), QueueNameFormatting("blockchain2intermediate"), false, msg);
     }
 
     private string QueueNameFormatting(string queue_name)
