@@ -9,6 +9,7 @@ namespace FDBC_Nethereum.Config
     public string rpcapi_host { get; set; }
     public string default_sender_address { get; set; }
     public string default_sender_password { get; set; }
+    public string default_sender_scrypt_keystore_json { get; set; }
     public bool transaction_fire_and_forget { get; set; }
     public int default_retry_in_ms { get; set; }
     public int max_retry_times { get; set; }

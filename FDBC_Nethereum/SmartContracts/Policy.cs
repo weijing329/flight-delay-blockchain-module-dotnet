@@ -29,13 +29,15 @@ using Newtonsoft.Json;
 
 using FDBC_Nethereum.Config;
 using FDBC_Nethereum.Services;
-
+using FDBC_Nethereum.Blockchain;
 
 namespace FDBC_Nethereum.SmartContracts
 {
   public class Policy
   {
-    private readonly ILogger<Web3GethService> _logger;
+    private readonly ILogger _logger;
+
+    private readonly BlockchainManager _blockchain_manager;
 
     private readonly BlockchainSettings _settings;
 
@@ -43,12 +45,13 @@ namespace FDBC_Nethereum.SmartContracts
 
     private Web3Geth web3geth => _web3geth;
 
-    public Policy(Web3Geth web3geth, BlockchainSettings settings, ILogger<Web3GethService> logger)
+    public Policy(BlockchainManager blockchain_manager)
     //public Policy(Web3Geth web3geth, BlockchainSettings settings)
     {
-      _web3geth = web3geth;
-      _settings = settings;
-      _logger = logger;
+      _blockchain_manager = blockchain_manager;
+      _web3geth = blockchain_manager.Web3Geth;
+      _settings = blockchain_manager.Settings;
+      _logger = blockchain_manager.Logger;
     }
 
     public async Task<string> CreateAsync(
@@ -56,33 +59,53 @@ namespace FDBC_Nethereum.SmartContracts
       string pid, string psn,
       string tenant_id,
       string start_date_time, string end_date_time,
-      string start_date_time_local, string end_date_time_local)
+      string start_date_time_local, string end_date_time_local,
+      BigInteger? nonce = null)
     {
+      _logger.LogDebug("FDBC_Nethereum.SmartContracts.Policy.CreateAsync({task_uuid})", task_uuid);
+
       string sender_address = _settings.default_sender_address;
       string contract_abi = _settings.policy_contract_abi;
       string contract_bytecode = _settings.policy_contract_bytecode;
 
       ////====================================
       //// deploy contract
-
-      // unlock for 120 secs
-
-      //bool bool_result = await web3geth.Miner.Start.SendRequestAsync(120);
-      var gas = new HexBigInteger(4700000);
+      var from = sender_address;
+      var gasLimit = new HexBigInteger(4700000);
       var wei = new HexBigInteger(0);
-      string tx_hash = await web3geth.Eth.DeployContract.SendRequestAsync(
-        abi: contract_abi,
-        contractByteCode: contract_bytecode,
-        from: sender_address,
-        gas: gas,
-        value: wei,
-        values: new object[] {
+      object[] values = new object[] {
           task_uuid,
           pid, psn,
           tenant_id,
           start_date_time, end_date_time,
           start_date_time_local, end_date_time_local
-        });
+        };
+
+
+      string tx_hash = "";
+
+      if (nonce != null)
+      {
+        string data = web3geth.Eth.DeployContract.GetData(contract_bytecode, contract_abi, values);
+        Nethereum.Signer.Transaction signable_transcation = new Nethereum.Signer.Transaction(
+          to: null, amount: wei, nonce: (BigInteger)nonce,
+          gasPrice: Nethereum.Signer.Transaction.DEFAULT_GAS_PRICE,
+          gasLimit: gasLimit.Value,
+          data: data
+          );
+
+        tx_hash = await _blockchain_manager.SignAndSendRawTransaction(signable_transcation);
+      }
+      else
+      {
+        tx_hash = await web3geth.Eth.DeployContract.SendRequestAsync(
+          abi: contract_abi,
+          contractByteCode: contract_bytecode,
+          from: from,
+          gas: gasLimit,
+          value: wei,
+          values: values);
+      }
 
       return tx_hash;
     }
@@ -105,8 +128,8 @@ namespace FDBC_Nethereum.SmartContracts
       string start_date_time_local,
       string end_date_time_local,
       string status,
-      string deleted
-      )
+      string deleted,
+      BigInteger? nonce = null)
     {
       // SmartContract function doesn't take null as input for string
       start_date_time = start_date_time ?? "";
@@ -127,11 +150,10 @@ namespace FDBC_Nethereum.SmartContracts
 
       Function set_function = contract.GetFunction("set_all");
 
-      var gas = new HexBigInteger(4700000);
+      var from = sender_address;
+      var gasLimit = new HexBigInteger(4700000);
       var wei = new HexBigInteger(0);
-      var tx_hash = await set_function.SendTransactionAsync(
-        from: sender_address, gas: gas, value: wei,
-        functionInput: new object[] {
+      object[] values = new object[] {
           task_uuid,
           start_date_time,
           end_date_time,
@@ -139,7 +161,29 @@ namespace FDBC_Nethereum.SmartContracts
           end_date_time_local,
           status,
           deleted
-        });
+        };
+
+      string tx_hash = "";
+
+      if (nonce != null)
+      {
+        string data = set_function.GetData(values);
+
+        Nethereum.Signer.Transaction signable_transcation = new Nethereum.Signer.Transaction(
+          to: contract_address, amount: wei, nonce: (BigInteger)nonce,
+          gasPrice: Nethereum.Signer.Transaction.DEFAULT_GAS_PRICE,
+          gasLimit: gasLimit.Value,
+          data: data
+          );
+
+        tx_hash = await _blockchain_manager.SignAndSendRawTransaction(signable_transcation);
+      }
+      else
+      {
+        tx_hash = await set_function.SendTransactionAsync(
+          from: from, gas: gasLimit, value: wei,
+          functionInput: values);
+      }
 
       return tx_hash;
     }

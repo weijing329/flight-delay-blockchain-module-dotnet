@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Numerics;
 using EasyNetQ;
 using Microsoft.Extensions.Configuration;
 using FDBC_Shared.DTO;
@@ -15,6 +16,8 @@ using Newtonsoft.Json;
 using System.Linq;
 using Microsoft.Extensions.Logging;
 using FDBC_Nethereum.Config;
+using Nethereum.RPC.Eth.DTOs;
+using Nethereum.Hex.HexTypes;
 
 namespace FDBC_RabbitMQ.MqServices
 {
@@ -31,6 +34,8 @@ namespace FDBC_RabbitMQ.MqServices
     private IWeb3GethService _web3geth_service;
 
     private readonly ILogger<EasyNetQService> _logger;
+
+    private readonly string _invlid_block_hash;
 
     public void Dispose()
     {
@@ -63,25 +68,30 @@ namespace FDBC_RabbitMQ.MqServices
 
       _web3geth_service = web3geth_service;
 
+      _invlid_block_hash = _web3geth_service.BlockchainManager.INVALID_BLOCK_HASH;
+
       _logger = logger;
+
+      var ASPNETCORE_ENVIRONMENT = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+      _logger.LogInformation("ASPNETCORE_ENVIRONMENT = {ASPNETCORE_ENVIRONMENT}", ASPNETCORE_ENVIRONMENT);
 
       _logger.LogDebug("Initialized: EasyNetQService");
 
-      //// TEST Flight.Create
-      //foreach (var i in Enumerable.Range(0, 20))
-      //{
-      //  var request = new I2B_Request
-      //  {
-      //    task_uuid = $"task_uuid_{i}",
-      //    task = new I2B_Request_Task()
-      //    {
-      //      name = "createNewBlockchainFlight",
-      //      payload = "{\"pid\":28,\"ufid\":72,\"flight_code\":\"CX564\",\"fs_flight_code\":\"CX564\",\"departure_airport\":\"HKG\",\"arrival_airport\":\"TPE\",\"departure_utc_offset_hours\":8,\"arrival_utc_offset_hours\":8,\"scheduled_departure_date\":20170719,\"scheduled_departure_date_time\":\"2017-07-19T05:10:00Z\",\"scheduled_departure_date_time_local\":\"2017-07-19T13:10:00+08:00\",\"scheduled_arrival_date_time\":\"2017-07-19T07:10:00Z\",\"scheduled_arrival_date_time_local\":\"2017-07-19T15:10:00+08:00\",\"hash\":\"0xad037ad2f98401ea9b02b8fa4373e444858836e1acbddf2cea73c126dca40083\"}"
-      //    }
-      //  };
+      // TEST Flight.Create
+      foreach (var i in Enumerable.Range(0, 20))
+      {
+        var request = new I2B_Request
+        {
+          task_uuid = $"task_uuid_{i}",
+          task = new I2B_Request_Task()
+          {
+            name = "createNewBlockchainFlight",
+            payload = "{\"pid\":28,\"ufid\":72,\"flight_code\":\"CX564\",\"fs_flight_code\":\"CX564\",\"departure_airport\":\"HKG\",\"arrival_airport\":\"TPE\",\"departure_utc_offset_hours\":8,\"arrival_utc_offset_hours\":8,\"scheduled_departure_date\":20170719,\"scheduled_departure_date_time\":\"2017-07-19T05:10:00Z\",\"scheduled_departure_date_time_local\":\"2017-07-19T13:10:00+08:00\",\"scheduled_arrival_date_time\":\"2017-07-19T07:10:00Z\",\"scheduled_arrival_date_time_local\":\"2017-07-19T15:10:00+08:00\",\"hash\":\"0xad037ad2f98401ea9b02b8fa4373e444858836e1acbddf2cea73c126dca40083\"}"
+          }
+        };
 
-      //  SendI2B_Request(request).Wait();
-      //}
+        SendI2B_Request(request).Wait();
+      }
 
       //// TEST Flight.SetFlightAttribute
       //foreach (var i in Enumerable.Range(0, 1))
@@ -165,41 +175,53 @@ namespace FDBC_RabbitMQ.MqServices
 
     public async Task OnReceiving_I2B_Request(IMessage<I2B_Request> msg, MessageReceivedInfo info)
     {
-      I2B_Request request = msg.Body;
-
-      switch (request.task.name)
+      try
       {
-        case "createNewBlockchainPolicy":
-          await CreateNewBlockchainPolicy(request);
-          break;
+        I2B_Request request = msg.Body;
 
-        case "createNewBlockchainFlight":
-          await CreateNewBlockchainFlight(request);
-          break;
+        switch (request.task.name)
+        {
+          case "createNewBlockchainPolicy":
+            await CreateNewBlockchainPolicy(request);
+            break;
 
-        case "deleteBlockchainPolicy":
-          await DeleteBlockchainPolicy(request);
-          break;
+          case "createNewBlockchainFlight":
+            await CreateNewBlockchainFlight(request);
+            break;
 
-        case "deleteBlockchainFlight":
-          await DeleteBlockchainFlight(request);
-          break;
+          case "deleteBlockchainPolicy":
+            await DeleteBlockchainPolicy(request);
+            break;
 
-        case "updateBlockchainPolicy":
-          await UpdateBlockchainPolicy(request);
-          break;
+          case "deleteBlockchainFlight":
+            await DeleteBlockchainFlight(request);
+            break;
 
-        case "updateBlockchainFlight":
-          await UpdateBlockchainFlight(request);
-          break;
+          case "updateBlockchainPolicy":
+            await UpdateBlockchainPolicy(request);
+            break;
 
-        default:
-          break;
+          case "updateBlockchainFlight":
+            await UpdateBlockchainFlight(request);
+            break;
+
+          default:
+            break;
+        }
+      }
+      catch (Exception ex)
+      {
+        _logger.LogError("Exception: EasyNetQService.OnReceiving_I2B_Request() => throw {@ex}", ex);
+        throw ex;
       }
     }
 
     private async Task CreateNewBlockchainPolicy(I2B_Request request)
     {
+      BigInteger? nonce = null;
+      if (_blockchain_settings.transaction_fire_and_forget)
+        nonce = _web3geth_service.BlockchainManager.GetMainAccountNonceForRawTransaction;
+
       CreatePolicy create_policy = JsonConvert.DeserializeObject<CreatePolicy>(request.task.payload);
       string tx_hash = await _web3geth_service.Policy.CreateAsync(
         task_uuid: request.task_uuid,
@@ -209,17 +231,26 @@ namespace FDBC_RabbitMQ.MqServices
         start_date_time: create_policy.start_date_time.ToString(),
         end_date_time: create_policy.end_date_time.ToString(),
         start_date_time_local: create_policy.start_date_time_local,
-        end_date_time_local: create_policy.end_date_time_local
-        );
+        end_date_time_local: create_policy.end_date_time_local,
+        nonce: nonce);
 
       if (_blockchain_settings.transaction_fire_and_forget)
-        BackgroundWaitTransactionResult(tx_hash, request);
+      {
+        // check transaction is pending
+        await MakeSureTransactionIsPending(tx_hash);
+
+        var fire_and_forget = BackgroundWaitTransactionResult(tx_hash, request);
+      }
       else
         await BackgroundWaitTransactionResult(tx_hash, request);
     }
 
     private async Task DeleteBlockchainPolicy(I2B_Request request)
     {
+      BigInteger? nonce = null;
+      if (_blockchain_settings.transaction_fire_and_forget)
+        nonce = _web3geth_service.BlockchainManager.GetMainAccountNonceForRawTransaction;
+
       DeletePolicy delete_policy = JsonConvert.DeserializeObject<DeletePolicy>(request.task.payload);
 
       string tx_hash = await _web3geth_service.Policy.SetPolicyAllAttributes(
@@ -230,17 +261,26 @@ namespace FDBC_RabbitMQ.MqServices
         start_date_time_local: delete_policy.start_date_time_local,
         end_date_time_local: delete_policy.end_date_time_local,
         status: delete_policy.status,
-        deleted: delete_policy.deleted.ToString()
-        );
+        deleted: delete_policy.deleted.ToString(),
+        nonce: nonce);
 
       if (_blockchain_settings.transaction_fire_and_forget)
-        BackgroundWaitTransactionResult(tx_hash, request);
+      {
+        // check transaction is pending
+        await MakeSureTransactionIsPending(tx_hash);
+
+        var fire_and_forget = BackgroundWaitTransactionResult(tx_hash, request);
+      }
       else
         await BackgroundWaitTransactionResult(tx_hash, request);
     }
 
     private async Task UpdateBlockchainPolicy(I2B_Request request)
     {
+      BigInteger? nonce = null;
+      if (_blockchain_settings.transaction_fire_and_forget)
+        nonce = _web3geth_service.BlockchainManager.GetMainAccountNonceForRawTransaction;
+
       UpdatePolicy update_policy = JsonConvert.DeserializeObject<UpdatePolicy>(request.task.payload);
 
       string tx_hash = await _web3geth_service.Policy.SetPolicyAllAttributes(
@@ -251,17 +291,26 @@ namespace FDBC_RabbitMQ.MqServices
         start_date_time_local: update_policy.start_date_time_local,
         end_date_time_local: update_policy.end_date_time_local,
         status: update_policy.status,
-        deleted: update_policy.deleted.ToString()
-        );
+        deleted: update_policy.deleted.ToString(),
+        nonce: nonce);
 
       if (_blockchain_settings.transaction_fire_and_forget)
-        BackgroundWaitTransactionResult(tx_hash, request);
+      {
+        // check transaction is pending
+        await MakeSureTransactionIsPending(tx_hash);
+
+        var fire_and_forget = BackgroundWaitTransactionResult(tx_hash, request);
+      }
       else
         await BackgroundWaitTransactionResult(tx_hash, request);
     }
 
     private async Task CreateNewBlockchainFlight(I2B_Request request)
     {
+      BigInteger? nonce = null;
+      if (_blockchain_settings.transaction_fire_and_forget)
+        nonce = _web3geth_service.BlockchainManager.GetMainAccountNonceForRawTransaction;
+
       CreateFlight create_flight = JsonConvert.DeserializeObject<CreateFlight>(request.task.payload);
       string tx_hash = await _web3geth_service.Flight.CreateAsync(
         task_uuid: request.task_uuid,
@@ -278,17 +327,26 @@ namespace FDBC_RabbitMQ.MqServices
         scheduled_departure_date_time: create_flight.scheduled_departure_date_time.ToString(),
         scheduled_departure_date_time_local: create_flight.scheduled_departure_date_time_local.ToString(),
         scheduled_arrival_date_time: create_flight.scheduled_arrival_date_time.ToString(),
-        scheduled_arrival_date_time_local: create_flight.scheduled_departure_date_time_local.ToString()
-        );
+        scheduled_arrival_date_time_local: create_flight.scheduled_departure_date_time_local.ToString(),
+        nonce: nonce);
 
       if (_blockchain_settings.transaction_fire_and_forget)
-        BackgroundWaitTransactionResult(tx_hash, request);
+      {
+        // check transaction is pending
+        await MakeSureTransactionIsPending(tx_hash);
+
+        var fire_and_forget = BackgroundWaitTransactionResult(tx_hash, request);
+      }
       else
         await BackgroundWaitTransactionResult(tx_hash, request);
     }
 
     private async Task UpdateBlockchainFlight(I2B_Request request)
     {
+      BigInteger? nonce = null;
+      if (_blockchain_settings.transaction_fire_and_forget)
+        nonce = _web3geth_service.BlockchainManager.GetMainAccountNonceForRawTransaction;
+
       UpdateFlight update_flight = JsonConvert.DeserializeObject<UpdateFlight>(request.task.payload);
 
       string tx_hash = await _web3geth_service.Flight.SetFlightAllAttributes(
@@ -304,17 +362,26 @@ namespace FDBC_RabbitMQ.MqServices
         deleted: update_flight.deleted.ToString(),
         flight_status_source: update_flight.flight_status_source,
         flight_status_fed: update_flight.flight_status_fed.ToString(),
-        delay_notification_date_time: update_flight.delay_notification_date_time
-        );
+        delay_notification_date_time: update_flight.delay_notification_date_time,
+        nonce: nonce);
 
       if (_blockchain_settings.transaction_fire_and_forget)
-        BackgroundWaitTransactionResult(tx_hash, request);
+      {
+        // check transaction is pending
+        await MakeSureTransactionIsPending(tx_hash);
+
+        var fire_and_forget = BackgroundWaitTransactionResult(tx_hash, request);
+      }
       else
         await BackgroundWaitTransactionResult(tx_hash, request);
     }
 
     private async Task DeleteBlockchainFlight(I2B_Request request)
     {
+      BigInteger? nonce = null;
+      if (_blockchain_settings.transaction_fire_and_forget)
+        nonce = _web3geth_service.BlockchainManager.GetMainAccountNonceForRawTransaction;
+
       DeleteFlight delete_flight = JsonConvert.DeserializeObject<DeleteFlight>(request.task.payload);
 
       string tx_hash = await _web3geth_service.Flight.SetFlightAllAttributes(
@@ -330,15 +397,61 @@ namespace FDBC_RabbitMQ.MqServices
         deleted: delete_flight.deleted.ToString(),
         flight_status_source: delete_flight.flight_status_source,
         flight_status_fed: delete_flight.flight_status_fed.ToString(),
-        delay_notification_date_time: delete_flight.delay_notification_date_time
-        );
+        delay_notification_date_time: delete_flight.delay_notification_date_time,
+        nonce: nonce);
 
       if (_blockchain_settings.transaction_fire_and_forget)
-        BackgroundWaitTransactionResult(tx_hash, request);
+      {
+        // check transaction is pending
+        await MakeSureTransactionIsPending(tx_hash);
+
+        var fire_and_forget = BackgroundWaitTransactionResult(tx_hash, request);
+      }
       else
         await BackgroundWaitTransactionResult(tx_hash, request);
     }
 
+
+    private async Task MakeSureTransactionIsPending(string tx_hash)
+    {
+      // Method1: You can busy poll for the transaction receipt
+      // Method2: You can busy poll on the transaction to see if its block is valid.This is what ether - pudding does
+
+      if (tx_hash == "")
+        return;
+
+      int ms_before_pending = 0;
+
+      Transaction tx = null;
+      string nonce = null; ;
+      
+      string block_hash = _invlid_block_hash;
+      bool has_valid_block_hash = false;
+      while(!has_valid_block_hash)
+      {
+        await Task.Delay(100);
+        ms_before_pending += 100;
+
+        tx = await _web3geth_service.BlockchainManager.GetTransaction(tx_hash);
+        nonce = tx.Nonce.Value.ToString();
+        block_hash = tx.BlockHash;
+
+        if (block_hash != _invlid_block_hash)
+        {
+          has_valid_block_hash = await ValidateBlockHash(block_hash, tx_hash);
+
+          if (has_valid_block_hash)
+            _logger.LogDebug("{tx_hash} => Nonce: {nonce}, BlockHash: {block_hash}, ms_before_pending: {ms_before_pending}", tx_hash, nonce, block_hash, ms_before_pending);
+        }
+      }
+    }
+
+    private async Task<bool> ValidateBlockHash(string block_hash, string tx_hash)
+    {
+      BlockWithTransactionHashes block = await _web3geth_service.BlockchainManager.GetBlockWithTransactionsHashesByHash(block_hash);
+
+      return (block.TransactionHashes.Contains(tx_hash)) ? true : false;
+    }
 
     private async Task BackgroundWaitTransactionResult(string tx_hash, I2B_Request request)
     {

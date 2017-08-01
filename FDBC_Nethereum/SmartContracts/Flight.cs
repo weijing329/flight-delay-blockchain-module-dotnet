@@ -28,12 +28,16 @@ using Nethereum.ABI.Encoders;
 using Newtonsoft.Json;
 using FDBC_Nethereum.Config;
 using FDBC_Nethereum.Services;
+using FDBC_Nethereum.Blockchain;
+using Nethereum.Signer;
 
 namespace FDBC_Nethereum.SmartContracts
 {
   public class Flight
   {
-    private readonly ILogger<Web3GethService> _logger;
+    private readonly ILogger _logger;
+
+    private readonly BlockchainManager _blockchain_manager;
 
     private readonly BlockchainSettings _settings;
 
@@ -41,12 +45,13 @@ namespace FDBC_Nethereum.SmartContracts
 
     private Web3Geth web3geth => _web3geth;
 
-    public Flight(Web3Geth web3geth, BlockchainSettings settings, ILogger<Web3GethService> logger)
+    public Flight(BlockchainManager blockchain_manager)
     //public Flight(Web3Geth web3geth, BlockchainSettings settings)
     {
-      _web3geth = web3geth;
-      _settings = settings;
-      _logger = logger;
+      _blockchain_manager = blockchain_manager;
+      _web3geth = blockchain_manager.Web3Geth;
+      _settings = blockchain_manager.Settings;
+      _logger = blockchain_manager.Logger;
     }
 
     public async Task<string> CreateAsync(
@@ -57,7 +62,8 @@ namespace FDBC_Nethereum.SmartContracts
       string departure_airport, string arrival_airport,
       string scheduled_departure_date,
       string scheduled_departure_date_time, string scheduled_departure_date_time_local,
-      string scheduled_arrival_date_time, string scheduled_arrival_date_time_local)
+      string scheduled_arrival_date_time, string scheduled_arrival_date_time_local,
+      BigInteger? nonce = null)
     {
       _logger.LogDebug("FDBC_Nethereum.SmartContracts.Flight.CreateAsync({task_uuid})", task_uuid);
 
@@ -67,17 +73,10 @@ namespace FDBC_Nethereum.SmartContracts
 
       //====================================
       // deploy contract
-      try
-      {
-        var gas = new HexBigInteger(_settings.flight_contract_deploy_gas);
-        var wei = new HexBigInteger(0);
-        string tx_hash = await web3geth.Eth.DeployContract.SendRequestAsync(
-          abi: contract_abi,
-          contractByteCode: contract_bytecode,
-          from: sender_address,
-          gas: gas,
-          value: wei,
-          values: new object[] {
+      var from = sender_address;
+      var gasLimit = new HexBigInteger(_settings.flight_contract_deploy_gas);
+      var wei = new HexBigInteger(0);
+      object[] values = new object[] {
           task_uuid,
           flight_id,
           pid,
@@ -93,15 +92,37 @@ namespace FDBC_Nethereum.SmartContracts
           scheduled_departure_date_time_local,
           scheduled_arrival_date_time,
           scheduled_arrival_date_time_local
-          });
+          };
 
-        return tx_hash;
-      }
-      catch (Exception ex)
+
+      string tx_hash = "";
+
+      if (nonce != null)
       {
-        _logger.LogError("Exception {@ex}", ex);
-        throw ex;
+        string data = web3geth.Eth.DeployContract.GetData(contract_bytecode, contract_abi, values);
+        Nethereum.Signer.Transaction signable_transcation = new Nethereum.Signer.Transaction(
+          to: null, amount: wei, nonce: (BigInteger)nonce,
+          gasPrice: Nethereum.Signer.Transaction.DEFAULT_GAS_PRICE,
+          gasLimit: gasLimit.Value,
+          data: data
+          );
+
+        tx_hash = await _blockchain_manager.SignAndSendRawTransaction(signable_transcation);
+
+        //_logger.LogDebug("SignAndSendRawTransaction(PrivateKey = {sender_private_key}, Signature = {@Signature}) => tx=hash = {tx_hash}", _blockchain_manager.sender_private_key, signable_transcation.Signature, tx_hash);
       }
+      else
+      {
+        tx_hash = await web3geth.Eth.DeployContract.SendRequestAsync(
+          abi: contract_abi,
+          contractByteCode: contract_bytecode,
+          from: from,
+          gas: gasLimit,
+          value: wei,
+          values: values);
+      }
+
+      return tx_hash;
     }
 
     public async Task<Tuple<string, string>> GetTransactionResultAsync_Create(string tx_hash)
@@ -127,7 +148,8 @@ namespace FDBC_Nethereum.SmartContracts
       string deleted,
       string flight_status_source,
       string flight_status_fed,
-      string delay_notification_date_time
+      string delay_notification_date_time,
+      BigInteger? nonce = null
       )
     {
       // SmartContract function doesn't take null as input for string
@@ -154,11 +176,10 @@ namespace FDBC_Nethereum.SmartContracts
 
       Function set_function = contract.GetFunction("set_all");
 
-      var gas = new HexBigInteger(_settings.flight_contract_set_all_gas);
+      var from = sender_address;
+      var gasLimit = new HexBigInteger(_settings.flight_contract_set_all_gas);
       var wei = new HexBigInteger(0);
-      var tx_hash = await set_function.SendTransactionAsync(
-        from: sender_address, gas: gas, value: wei,
-        functionInput: new object[] {
+      object[] values = new object[] {
           task_uuid,
           status,
           actual_departure_date_time,
@@ -171,7 +192,30 @@ namespace FDBC_Nethereum.SmartContracts
           flight_status_source,
           flight_status_fed,
           delay_notification_date_time
-        });
+        };
+
+      string tx_hash = "";
+
+      if (nonce != null)
+      {
+        string data = set_function.GetData(values);
+
+        Nethereum.Signer.Transaction signable_transcation = new Nethereum.Signer.Transaction(
+          to: contract_address, amount: wei, nonce: (BigInteger)nonce,
+          gasPrice: Nethereum.Signer.Transaction.DEFAULT_GAS_PRICE,
+          gasLimit: gasLimit.Value,
+          data: data
+          );
+
+        tx_hash = await _blockchain_manager.SignAndSendRawTransaction(signable_transcation);
+      }
+      else
+      {
+        tx_hash = await set_function.SendTransactionAsync(
+            from: from, gas: gasLimit, value: wei,
+            functionInput: values
+          );
+      }
 
       return tx_hash;
     }
@@ -205,88 +249,6 @@ namespace FDBC_Nethereum.SmartContracts
 
       return receipt;
     }
-
-    //public async Task<Tuple<string, string>> SetFlightAttribute(string contract_address, string task_uuid, string attribute_name, string attribute_value)
-    //{
-    //  Web3Geth web3geth = _web3geth;
-    //  string sender_address = _default_sender_address;
-    //  string contract_abi = _contract_abi;
-
-    //  Contract contract = web3geth.Eth.GetContract(contract_abi, contract_address);
-
-    //  string task_uuid_sha3 = $"0x{_web3geth.Sha3(task_uuid)}";
-    //  byte[] task_uuid_sha3_bytes32 = task_uuid_sha3.HexToByteArray();
-
-    //  var set_event = contract.GetEvent($"event_set_{attribute_name}");
-    //  var set_event_filter_by_task_uuid = await set_event.CreateFilterAsync(new[] { task_uuid_sha3_bytes32 });
-
-    //  Function set_function = contract.GetFunction($"set_{attribute_name}");
-
-    //  var wei = new HexBigInteger(0);
-    //  var tx_hash = await set_function.SendTransactionAsync(from: sender_address, gas: new HexBigInteger(4700000), value: wei, functionInput: new object[] { task_uuid, attribute_value });
-
-    //  int web3_transaction_check_delay_in_ms = _default_retry_in_ms;
-
-    //  TransactionReceipt receipt = null;
-    //  while (receipt == null)
-    //  {
-    //    await Task.Delay(web3_transaction_check_delay_in_ms);
-    //    receipt = await web3geth.Eth.Transactions.GetTransactionReceipt.SendRequestAsync(tx_hash);
-    //  }
-
-    //  var set_event_logs = await set_event.GetFilterChanges<EventSetFlightAttribute>(set_event_filter_by_task_uuid);
-
-    //  await web3geth.Eth.Filters.UninstallFilter.SendRequestAsync(set_event_filter_by_task_uuid);
-
-    //  string stringified_receipt = JsonConvert.SerializeObject(receipt);
-    //  string stringified_event_log = JsonConvert.SerializeObject(set_event_logs.FirstOrDefault());
-
-    //  return new Tuple<string, string>(stringified_receipt, stringified_event_log);
-    //}
-
-    //public async Task SetStatus(string task_uuid, string input)
-    //{
-    //  Web3Geth web3geth = _web3geth;
-    //  string sender_address = _default_sender_address;
-    //  string contract_address = _test_existing_contract_address;
-    //  string contract_abi = _contract_abi;
-    //  string contract_bytecode = _contract_bytecode;
-
-    //  // connection problem? Windows firewall TCP 8545
-    //  // TODO 測試 deploy to local blockchain => test local set function and event
-
-    //  Contract contract = web3geth.Eth.GetContract(contract_abi, contract_address);
-
-    //  string task_uuid_sha3 = $"0x{_web3geth.Sha3(task_uuid)}";
-    //  //Bytes32TypeEncoder encoder = new Bytes32TypeEncoder();
-    //  //byte[] task_uuid_sha3_bytes32 = encoder.Encode(task_uuid_sha3);
-    //  byte[] task_uuid_sha3_bytes32 = task_uuid_sha3.HexToByteArray();
-
-    //  var set_status_event = contract.GetEvent("event_set_status");
-    //  var set_status_event_filter = await set_status_event.CreateFilterAsync(task_uuid_sha3_bytes32);
-
-    //  Function set_status_function = contract.GetFunction("set_status");
-
-    //  var wei = new HexBigInteger(0);
-    //  var tx_hash = await set_status_function.SendTransactionAsync(from: sender_address, gas: new HexBigInteger(4700000), value: wei, functionInput: new object[] { task_uuid, input });
-
-    //  //bool bool_result = await web3geth.Miner.Start.SendRequestAsync(120);
-
-    //  int web3_transaction_check_delay_in_ms = _default_retry_in_ms;
-
-    //  TransactionReceipt receipt = null;
-    //  while (receipt == null)
-    //  {
-    //    await Task.Delay(web3_transaction_check_delay_in_ms);
-    //    receipt = await web3geth.Eth.Transactions.GetTransactionReceipt.SendRequestAsync(tx_hash);
-    //  }
-
-    //  //bool_result = await web3geth.Miner.Stop.SendRequestAsync();
-
-    //  //var set_status_event_logs = await set_status_event.GetFilterChanges<EventSetFlightAttribute>(set_status_event_filter);
-
-    //  //bool uninstall_successful = await _web3geth.Eth.Filters.UninstallFilter.SendRequestAsync(set_status_event_filter);
-    //}
 
     public class EventNewFlight
     {
